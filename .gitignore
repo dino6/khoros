@@ -1,0 +1,4 @@
+*.dll
+sdl2/
+res/_*
+out/
