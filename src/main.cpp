@@ -403,6 +403,9 @@ private:
 		}
 
 		camA += mouseDif.x * 0.005;
+
+		while (camA < -PI) camA += 2*PI;
+		while (camA > PI) camA -= 2*PI;
 		
 		chronoTick += nowMS();
 	}
@@ -435,12 +438,35 @@ private:
 		camY += swingHorizontal * std::cos(camA);
 		camZ += -std::cos(4*PI*swingT) * 0.1 * swingAmount;
 
+		double leftAngles[walls.size()];
+		double rightAngles[walls.size()];
+		for (int i = 0; i < walls.size(); i++) {
+			if (!wallsVisible[i]) {
+				leftAngles[i] = -2*PI;
+				rightAngles[i] = -2*PI;
+				continue;
+			}
+
+			Wall w = walls[i];
+
+			double a1 = std::atan2(w.y1 - camY, w.x1 - camX) - camA;
+			double a2 = std::atan2(w.y2 - camY, w.x2 - camX) - camA;
+
+			while (a1 < -PI) a1 += 2*PI;
+			while (a1 > PI) a1 -= 2*PI;
+			while (a2 < -PI) a2 += 2*PI;
+			while (a2 > PI) a2 -= 2*PI;
+
+			leftAngles[i] = std::min(a1, a2);
+			rightAngles[i] = std::max(a1, a2);
+		}
+
 		void *pixels;
 		int pitch;
 		SDL_LockTexture(screenTexture, NULL, &pixels, &pitch);
 
 		for (int i = 0; i < COLS; i++) {
-			renderCol(i, dw, dh, near, pixels, pitch);
+			renderCol(i, dw, dh, near, pixels, leftAngles, rightAngles);
 		}
 
 		SDL_UnlockTexture(screenTexture);
@@ -466,7 +492,7 @@ private:
 		SDL_RenderPresent(renderer);
 	}
 
-	void renderCol(int i, double dw, double dh, double near, void *pixels, int pitch) {
+	void renderCol(int i, double dw, double dh, double near, void *pixels, double *leftAngles, double *rightAngles) {
 		for (int j = 0; j < ROWS; j++) {
 			rgbBuffer[i][j] = rgb {0, 0, 0};
 			zBuffer[i][j] = -1;
@@ -480,6 +506,9 @@ private:
 		for (int k = 0; k < walls.size(); k++) {
 			Wall w = walls[k];
 			if (!wallsVisible[k]) continue;
+
+			if (a - camA < leftAngles[k] || a - camA > rightAngles[k]) continue;
+
 			Vec2 intersect = wallRayIntersection(camX, camY, a, w);
 			if (intersect.x < 0 || intersect.y > 1 || intersect.y < 0) continue;	
 
